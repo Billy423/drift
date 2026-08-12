@@ -1,0 +1,659 @@
+{
+ "packaging": {
+  "n_prs": 50,
+  "prs_fired": 10,
+  "intersections": 14,
+  "denominator": 50,
+  "tally": {
+   "i": 14
+  },
+  "records": [
+   {
+    "pr": 1238,
+    "intent": "signature",
+    "subject": "packaging.tags.parse_tag",
+    "cls": "i",
+    "conf": "",
+    "file": "src/packaging/tags.py"
+   },
+   {
+    "pr": 1319,
+    "intent": "signature",
+    "subject": "packaging.version.Version.__init__",
+    "cls": "i",
+    "conf": "",
+    "file": "src/packaging/version.py"
+   },
+   {
+    "pr": 1224,
+    "intent": "signature",
+    "subject": "packaging.tags.parse_tag",
+    "cls": "i",
+    "conf": "",
+    "file": "src/packaging/tags.py"
+   },
+   {
+    "pr": 1305,
+    "intent": "signature",
+    "subject": "packaging.utils.parse_wheel_filename",
+    "cls": "i",
+    "conf": "",
+    "file": "src/packaging/utils.py"
+   },
+   {
+    "pr": 1305,
+    "intent": "signature",
+    "subject": "packaging.utils.parse_sdist_filename",
+    "cls": "i",
+    "conf": "",
+    "file": "src/packaging/utils.py"
+   },
+   {
+    "pr": 1267,
+    "intent": "signature",
+    "subject": "packaging.ranges.VersionRange.contains",
+    "cls": "i",
+    "conf": "",
+    "file": "src/packaging/ranges.py"
+   },
+   {
+    "pr": 1266,
+    "intent": "signature",
+    "subject": "packaging.licenses.canonicalize_license_expression",
+    "cls": "i",
+    "conf": "",
+    "file": "src/packaging/licenses/__init__.py"
+   },
+   {
+    "pr": 1273,
+    "intent": "signature",
+    "subject": "packaging.utils.parse_wheel_filename",
+    "cls": "i",
+    "conf": "",
+    "file": "src/packaging/utils.py"
+   },
+   {
+    "pr": 1273,
+    "intent": "signature",
+    "subject": "packaging.utils.parse_sdist_filename",
+    "cls": "i",
+    "conf": "",
+    "file": "src/packaging/utils.py"
+   },
+   {
+    "pr": 1264,
+    "intent": "signature",
+    "subject": "packaging.tags.sys_tags",
+    "cls": "i",
+    "conf": "",
+    "file": "src/packaging/tags.py"
+   },
+   {
+    "pr": 1259,
+    "intent": "signature",
+    "subject": "packaging.specifiers.Specifier.contains",
+    "cls": "i",
+    "conf": "",
+    "file": "src/packaging/specifiers.py"
+   },
+   {
+    "pr": 1259,
+    "intent": "signature",
+    "subject": "packaging.specifiers.Specifier.filter",
+    "cls": "i",
+    "conf": "",
+    "file": "src/packaging/specifiers.py"
+   },
+   {
+    "pr": 1259,
+    "intent": "signature",
+    "subject": "packaging.specifiers.SpecifierSet.contains",
+    "cls": "i",
+    "conf": "",
+    "file": "src/packaging/specifiers.py"
+   },
+   {
+    "pr": 1245,
+    "intent": "signature",
+    "subject": "packaging.tags.cpython_tags",
+    "cls": "i",
+    "conf": "",
+    "file": "src/packaging/tags.py"
+   }
+  ]
+ },
+ "urllib3": {
+  "n_prs": 50,
+  "prs_fired": 11,
+  "intersections": 13,
+  "denominator": 50,
+  "tally": {
+   "i": 13
+  },
+  "records": [
+   {
+    "pr": 5095,
+    "intent": "signature",
+    "subject": "urllib3.util.url.parse_url",
+    "cls": "i",
+    "conf": "",
+    "file": "src/urllib3/util/url.py"
+   },
+   {
+    "pr": 5092,
+    "intent": "signature",
+    "subject": "urllib3.util.request.make_headers",
+    "cls": "i",
+    "conf": "",
+    "file": "src/urllib3/util/request.py"
+   },
+   {
+    "pr": 5055,
+    "intent": "signature",
+    "subject": "urllib3.util.request.make_headers",
+    "cls": "i",
+    "conf": "",
+    "file": "src/urllib3/util/request.py"
+   },
+   {
+    "pr": 5079,
+    "intent": "signature",
+    "subject": "urllib3.connectionpool.HTTPConnectionPool.urlopen",
+    "cls": "i",
+    "conf": "",
+    "file": "src/urllib3/connectionpool.py"
+   },
+   {
+    "pr": 5062,
+    "intent": "signature",
+    "subject": "urllib3.connectionpool.HTTPConnectionPool.urlopen",
+    "cls": "i",
+    "conf": "",
+    "file": "src/urllib3/connectionpool.py"
+   },
+   {
+    "pr": 5019,
+    "intent": "signature",
+    "subject": "urllib3.response.HTTPResponse.stream",
+    "cls": "i",
+    "conf": "",
+    "file": "src/urllib3/response.py"
+   },
+   {
+    "pr": 4974,
+    "intent": "signature",
+    "subject": "urllib3.response.HTTPResponse.read_chunked",
+    "cls": "i",
+    "conf": "",
+    "file": "src/urllib3/response.py"
+   },
+   {
+    "pr": 4967,
+    "intent": "signature",
+    "subject": "urllib3.response.HTTPResponse.read",
+    "cls": "i",
+    "conf": "",
+    "file": "src/urllib3/response.py"
+   },
+   {
+    "pr": 4967,
+    "intent": "signature",
+    "subject": "urllib3.response.HTTPResponse.read1",
+    "cls": "i",
+    "conf": "",
+    "file": "src/urllib3/response.py"
+   },
+   {
+    "pr": 4967,
+    "intent": "signature",
+    "subject": "urllib3.response.HTTPResponse.read_chunked",
+    "cls": "i",
+    "conf": "",
+    "file": "src/urllib3/response.py"
+   },
+   {
+    "pr": 4960,
+    "intent": "signature",
+    "subject": "urllib3.response.HTTPResponse.read",
+    "cls": "i",
+    "conf": "",
+    "file": "src/urllib3/response.py"
+   },
+   {
+    "pr": 3797,
+    "intent": "signature",
+    "subject": "urllib3.response.HTTPResponse.stream",
+    "cls": "i",
+    "conf": "",
+    "file": "src/urllib3/response.py"
+   },
+   {
+    "pr": 4952,
+    "intent": "signature",
+    "subject": "urllib3.connectionpool.HTTPConnectionPool.urlopen",
+    "cls": "i",
+    "conf": "",
+    "file": "src/urllib3/connectionpool.py"
+   }
+  ]
+ },
+ "requests": {
+  "n_prs": 50,
+  "prs_fired": 7,
+  "intersections": 51,
+  "denominator": 50,
+  "tally": {
+   "i": 51
+  },
+  "records": [
+   {
+    "pr": 7497,
+    "intent": "signature",
+    "subject": "requests.cookies.merge_cookies",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/cookies.py"
+   },
+   {
+    "pr": 7460,
+    "intent": "signature",
+    "subject": "requests.sessions.Session.get",
+    "cls": "i",
+    "conf": "NEEDS_LLM",
+    "file": "src/requests/sessions.py"
+   },
+   {
+    "pr": 7431,
+    "intent": "signature",
+    "subject": "requests.sessions.Session.request",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/sessions.py"
+   },
+   {
+    "pr": 7429,
+    "intent": "signature",
+    "subject": "requests.sessions.Session.get",
+    "cls": "i",
+    "conf": "NEEDS_LLM",
+    "file": "src/requests/sessions.py"
+   },
+   {
+    "pr": 7425,
+    "intent": "signature",
+    "subject": "requests.sessions.Session.request",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/sessions.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.cookies.extract_cookies_to_jar",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/cookies.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.cookies.RequestsCookieJar._find",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/cookies.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.cookies.RequestsCookieJar._find_no_duplicates",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/cookies.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.cookies.cookiejar_from_dict",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/cookies.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.cookies.merge_cookies",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/cookies.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.sessions.Session.prepare_request",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/sessions.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.sessions.Session.request",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/sessions.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.sessions.Session.get",
+    "cls": "i",
+    "conf": "NEEDS_LLM",
+    "file": "src/requests/sessions.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.sessions.Session.options",
+    "cls": "i",
+    "conf": "NEEDS_LLM",
+    "file": "src/requests/sessions.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.sessions.Session.head",
+    "cls": "i",
+    "conf": "NEEDS_LLM",
+    "file": "src/requests/sessions.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.sessions.Session.post",
+    "cls": "i",
+    "conf": "NEEDS_LLM",
+    "file": "src/requests/sessions.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.sessions.Session.put",
+    "cls": "i",
+    "conf": "NEEDS_LLM",
+    "file": "src/requests/sessions.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.sessions.Session.patch",
+    "cls": "i",
+    "conf": "NEEDS_LLM",
+    "file": "src/requests/sessions.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.sessions.Session.delete",
+    "cls": "i",
+    "conf": "NEEDS_LLM",
+    "file": "src/requests/sessions.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.api.request",
+    "cls": "i",
+    "conf": "NEEDS_LLM",
+    "file": "src/requests/api.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.api.get",
+    "cls": "i",
+    "conf": "NEEDS_LLM",
+    "file": "src/requests/api.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.api.options",
+    "cls": "i",
+    "conf": "NEEDS_LLM",
+    "file": "src/requests/api.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.api.head",
+    "cls": "i",
+    "conf": "NEEDS_LLM",
+    "file": "src/requests/api.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.api.post",
+    "cls": "i",
+    "conf": "NEEDS_LLM",
+    "file": "src/requests/api.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.api.put",
+    "cls": "i",
+    "conf": "NEEDS_LLM",
+    "file": "src/requests/api.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.api.patch",
+    "cls": "i",
+    "conf": "NEEDS_LLM",
+    "file": "src/requests/api.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.api.delete",
+    "cls": "i",
+    "conf": "NEEDS_LLM",
+    "file": "src/requests/api.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests._internal_utils.unicode_is_ascii",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/_internal_utils.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.utils.parse_list_header",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/utils.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.utils.parse_dict_header",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/utils.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.utils.unquote_header_value",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/utils.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.utils.dict_from_cookiejar",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/utils.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.utils.add_dict_to_cookiejar",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/utils.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.utils._parse_content_type_header",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/utils.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.utils.get_encoding_from_headers",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/utils.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.utils.get_unicode_from_response",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/utils.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.utils.select_proxy",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/utils.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.utils.resolve_proxies",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/utils.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.adapters.BaseAdapter.send",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/adapters.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.adapters.HTTPAdapter.init_poolmanager",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/adapters.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.adapters.HTTPAdapter.proxy_manager_for",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/adapters.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.adapters.HTTPAdapter.cert_verify",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/adapters.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.adapters.HTTPAdapter.build_response",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/adapters.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.adapters.HTTPAdapter.build_connection_pool_key_attributes",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/adapters.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.adapters.HTTPAdapter.get_connection_with_tls_context",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/adapters.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.adapters.HTTPAdapter.get_connection",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/adapters.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.adapters.HTTPAdapter.request_url",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/adapters.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.adapters.HTTPAdapter.add_headers",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/adapters.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.adapters.HTTPAdapter.proxy_headers",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/adapters.py"
+   },
+   {
+    "pr": 7272,
+    "intent": "signature",
+    "subject": "requests.adapters.HTTPAdapter.send",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/adapters.py"
+   },
+   {
+    "pr": 7395,
+    "intent": "signature",
+    "subject": "requests.adapters.HTTPAdapter.build_connection_pool_key_attributes",
+    "cls": "i",
+    "conf": "",
+    "file": "src/requests/adapters.py"
+   }
+  ]
+ }
+}
