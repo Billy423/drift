@@ -1,0 +1,764 @@
+"""Dispatch, wallet, non-blocking fan-in, and interruption tests."""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from drift.cost import usage_cost_usd
+from drift.graph import dispatch, frame, read_model
+from drift.graph.nodes.rails import StrictMeasurementAbort
+from drift.journal.writer import JournalWriter, Stamps
+from drift.persistence.models import JournalRecord, ScanRun
+from tests.fixtures.frame import cell_result_payload, frame_repo, frame_run, stub_dispatch
+
+_STAMPS = Stamps("agent/0.8", "sjudge/0.4", "claude-sonnet-5")
+# One cell billed at $0.30 using the configured model's list rates.
+_USAGE_30C = {
+    "input_tokens": 0,
+    "output_tokens": 20_000,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0,
+}
+LANE_B = ("docstrings", "docstring_corpus")
+
+
+def _rows(session, run_id, record_type):
+    """Return one run's journal payloads of the requested type in write order."""
+    return [
+        r.payload
+        for r in session.query(JournalRecord)
+        .filter_by(run_id=run_id, record_type=record_type)
+        .order_by(JournalRecord.id)
+        .all()
+    ]
+
+
+def _disposition(session, run_id):
+    """Return the run's frame disposition payload."""
+    return [p for p in _rows(session, run_id, "frame_plan") if p["phase"] == "disposition"][0]
+
+
+def _billing_cell(db_session, usage=None, per_cell=None):
+    """Build a stub that journals one paid coverage row for each discovery cell.
+
+    Docstring discovery bills nothing, which is why the wallet can exempt that producer.
+    """
+
+    def hook(run_id, producer, unit_ref, repo_root, config):
+        """Journal the configured usage for a discovery cell."""
+        if producer != "agent":
+            return None
+        amount = (per_cell or {}).get(unit_ref, usage or _USAGE_30C)
+        writer = JournalWriter(db_session, run_id, "r", "abc", _STAMPS)
+        writer.write("agent", "agent_coverage", {"unit": unit_ref, "usage": amount})
+        writer.flush()
+        return None
+
+    return hook
+
+
+def _total_billed(session, run_id) -> float:
+    """Recompute billed spend from every journal row carrying usage.
+
+    Reading `run_cost.spend_usd` would test the frame's arithmetic against itself.
+    """
+    total = 0.0
+    for row in (
+        session.query(JournalRecord).filter_by(run_id=run_id).order_by(JournalRecord.id).all()
+    ):
+        usage = (row.payload or {}).get("usage")
+        if isinstance(usage, dict) and usage:
+            total += usage_cost_usd(usage, model=row.model)
+    return total
+
+
+def test_the_frame_never_calls_get_or_touches_asyncresult(tmp_path, db_session, monkeypatch):
+    """Verify the frame never waits on a task result object.
+
+    Celery tasks cannot synchronously wait for subtasks safely. Both regular and eager results are
+    trapped because the frame must discover completion by polling journal rows.
+    """
+    import celery.result
+
+    def _forbidden(*a, **k):
+        """Fail any attempt to wait on a Celery result."""
+        raise AssertionError("the frame called .get() on a result object")
+
+    monkeypatch.setattr(celery.result.AsyncResult, "get", _forbidden)
+    monkeypatch.setattr(celery.result.EagerResult, "get", _forbidden)
+
+    dispatched: list[str] = []
+
+    def _record(run_id, producer, unit_ref, repo_root, config):
+        """Record each dispatched cell."""
+        dispatched.append(f"{producer}:{unit_ref}")
+        return None
+
+    repo = frame_repo(tmp_path, files={"A.md": "a"})
+    frame_run(repo, db_session, monkeypatch, dispatch=stub_dispatch(db_session, hook=_record))
+
+    assert dispatched == ["docstrings:docstring_corpus", "agent:A.md"]
+
+
+def test_the_production_dispatch_publishes_with_its_own_task_id_and_discards_the_result(
+    monkeypatch,
+):
+    """Verify dispatch supplies its own task ID without reading result attributes.
+
+    The frame needs the ID for worker membership checks and revocation. Supplying `task_id=` avoids
+    reading it from the `AsyncResult` returned by `apply_async`.
+    """
+    from drift.tasks import cells as cells_module
+
+    seen: dict = {}
+
+    class _Sentinel:
+        """Fail if the frame reads an attribute from the returned result object."""
+
+        def __getattr__(self, name):
+            """Reject every attempted result attribute access."""
+            raise AssertionError(f"the frame touched AsyncResult.{name}")
+
+    def _apply_async(args=None, task_id=None, **kwargs):
+        """Capture the published arguments and return an attribute-trapping result."""
+        seen["args"] = args
+        seen["task_id"] = task_id
+        return _Sentinel()
+
+    monkeypatch.setattr(cells_module.run_cell_task, "apply_async", _apply_async)
+
+    returned = frame._celery_dispatch(7, "agent", "A.md", "/repo", {"budget": 1.0})
+
+    assert seen["args"] == [7, "agent", "A.md", "/repo", {"budget": 1.0}]
+    assert seen["task_id"] == returned
+    assert isinstance(returned, str) and len(returned) == 36  # UUID generated by the frame
+
+
+def test_the_frame_runs_end_to_end_through_the_real_celery_task_under_eager(tmp_path, monkeypatch):
+    """Exercise the default dispatch path with Celery eager execution.
+
+    This is the only test here that lets the frame and each cell resolve their own client,
+    database session, and dispatcher from a broker-safe message.
+
+    Eager execution returns control directly to the dispatch loop, which must behave like the
+    worker-backed path.
+
+    It commits for real, so cleanup uses both run ID and repository path: terminal rows have no
+    `repo` column, and a path-only sweep would leave its rows behind in a shared database.
+    """
+    from drift.persistence.db import SessionLocal
+    from drift.persistence.models import CellTerminalStatus, Issue, IssueEvent, ScanRun
+    from drift.tasks.celery_app import celery_app
+    from tests.fixtures.step2_substrate import build_substrate_repo, make_substrate_client
+
+    repo_root = str(build_substrate_repo(tmp_path))
+    monkeypatch.setattr("anthropic.Anthropic", lambda *a, **k: make_substrate_client())
+    monkeypatch.setitem(celery_app.conf, "task_always_eager", True)
+    monkeypatch.setitem(celery_app.conf, "task_eager_propagates", True)
+
+    run_id = None
+    try:
+        run_id, report = frame.run_scan(repo_root, poll_interval=0)
+
+        assert "## Verified findings" in report
+        session = SessionLocal()
+        try:
+            assert session.get(ScanRun, run_id).status == "done"
+            results = _rows(session, run_id, "cell_result")
+            assert {tuple(p["cell_key"]) for p in results} == {
+                LANE_B,
+                ("agent", "GUIDE.md"),
+                ("agent", "README.md"),
+            }
+            assert {p["status"] for p in results} == {"completed"}
+            # Both producers write inventory rows, so a total count cannot prove discovery ran.
+            inventory = _rows(session, run_id, "claim_inventory")
+            assert {p["lane"] for p in inventory} == {"agent", "docstrings"}
+            assert session.query(CellTerminalStatus).filter_by(run_id=run_id).count() == 3
+            cost = _rows(session, run_id, "run_cost")[0]
+            assert cost["graph_completed"] is True and cost["spend_is_floor"] is False
+            # Exact equality protects the exported run-cost schema from accidental additions.
+            assert set(cost) == {
+                "spend_usd",
+                "tokens",
+                "sources",
+                "models",
+                "unpriced",
+                "price_table_ver",
+                "graph_completed",
+                "spend_is_floor",
+                "unreported_cells",
+            }
+        finally:
+            session.close()
+    finally:
+        session = SessionLocal()
+        try:
+            runs = [r.id for r in session.query(ScanRun).filter_by(repo=repo_root)]
+            issues = [i.id for i in session.query(Issue).filter_by(repo=repo_root)]
+            session.query(IssueEvent).filter(IssueEvent.issue_id.in_(issues)).delete(
+                synchronize_session=False
+            )
+            session.query(Issue).filter(Issue.id.in_(issues)).delete(synchronize_session=False)
+            session.query(JournalRecord).filter(JournalRecord.run_id.in_(runs)).delete(
+                synchronize_session=False
+            )
+            session.query(CellTerminalStatus).filter(CellTerminalStatus.run_id.in_(runs)).delete(
+                synchronize_session=False
+            )
+            session.query(ScanRun).filter(ScanRun.id.in_(runs)).delete(synchronize_session=False)
+            session.commit()
+        finally:
+            session.close()
+
+
+def test_spend_never_exceeds_the_budget_by_more_than_one_cell(tmp_path, db_session, monkeypatch):
+    """Bound total spend by the budget plus one cell's cost.
+
+    The fixture's first paid cell costs more than the whole budget. Usage is journaled only when a
+    cell finishes, so the frame can stop only at the next cell boundary.
+    """
+    repo = frame_repo(tmp_path, files={"A.md": "a", "B.md": "b", "C.md": "c"})
+    budget = 0.10
+    most_expensive_cell = usage_cost_usd(_USAGE_30C, model="claude-sonnet-5")
+    assert most_expensive_cell > budget
+
+    run_id, _ = frame_run(
+        repo,
+        db_session,
+        monkeypatch,
+        budget=budget,
+        dispatch=stub_dispatch(db_session, hook=_billing_cell(db_session)),
+    )
+
+    spent = _total_billed(db_session, run_id)
+    assert spent == pytest.approx(most_expensive_cell)
+    assert spent <= budget + most_expensive_cell
+    disposition = _disposition(db_session, run_id)
+    assert disposition["funded"] == [list(LANE_B), ["agent", "A.md"]]
+    assert disposition["deferred_by_wallet"] == [["agent", "B.md"], ["agent", "C.md"]]
+
+
+def test_at_a_generous_budget_every_cell_is_funded_and_a_run_that_dispatches_nothing_fails(
+    tmp_path, db_session, monkeypatch
+):
+    """Fund every cell under a generous budget and reject the vacuous zero-dispatch case."""
+    repo = frame_repo(tmp_path, files={"A.md": "a", "B.md": "b", "C.md": "c"})
+
+    run_id, _ = frame_run(
+        repo,
+        db_session,
+        monkeypatch,
+        budget=5.0,
+        dispatch=stub_dispatch(db_session, hook=_billing_cell(db_session)),
+    )
+
+    funded = _disposition(db_session, run_id)["funded"]
+    assert len(funded) == 4  # docstring corpus plus one cell per document
+    assert _disposition(db_session, run_id)["deferred_by_wallet"] == []
+    assert len(funded) >= 1
+
+
+def test_the_wallet_rail_carries_both_denominations(tmp_path, db_session, monkeypatch):
+    """Keep document and cell counts separate in a wallet-stop payload.
+
+    Existing consumers interpret `items_*` as document units, while the frame stops at cell
+    boundaries. Reusing those fields for cells would silently change their meaning.
+    """
+    repo = frame_repo(tmp_path, files={"A.md": "a", "B.md": "b", "C.md": "c"})
+
+    run_id, _ = frame_run(
+        repo,
+        db_session,
+        monkeypatch,
+        budget=0.10,
+        dispatch=stub_dispatch(db_session, hook=_billing_cell(db_session)),
+    )
+
+    rails = _rows(db_session, run_id, "rail_stop")
+    assert len(rails) == 1
+    rail = rails[0]
+    assert (rail["lane"], rail["reason"]) == ("frame", "wallet-exhausted")
+    assert (rail["units_done"], rail["units_total"]) == (1, 3)
+    assert (rail["cells_done"], rail["cells_total"]) == (2, 4)
+    # Existing `items_*` consumers expect document counts.
+    assert (rail["items_done"], rail["items_total"]) == (1, 3)
+    assert rail["budget"] == 0.10 and rail["spend"] > 0
+
+
+def test_a_budget_stopped_runs_banner_names_the_cells_it_never_ran(
+    tmp_path, db_session, monkeypatch
+):
+    """Name every wallet-deferred cell in the incomplete-run banner.
+
+    Deferred cells have no coverage rows because they never ran, so the banner must also use the
+    frame disposition to say what is missing.
+    """
+    repo = frame_repo(tmp_path, files={"A.md": "a", "B.md": "b", "C.md": "c"})
+
+    run_id, report = frame_run(
+        repo,
+        db_session,
+        monkeypatch,
+        budget=0.10,
+        dispatch=stub_dispatch(db_session, hook=_billing_cell(db_session)),
+    )
+
+    assert _disposition(db_session, run_id)["deferred_by_wallet"] == [
+        ["agent", "B.md"],
+        ["agent", "C.md"],
+    ]
+    assert "⚠ INCOMPLETE" in report
+    assert "agent:B.md (deferred_by_wallet)" in report
+    assert "agent:C.md (deferred_by_wallet)" in report
+    # Completed cells are coverage, not shortfall.
+    assert "agent:A.md" not in report
+    # The budget note explains why the missing cells did not run.
+    assert "budget $0.10 reached" in report
+
+
+def test_a_budget_short_scan_still_dispatches_lane_b_with_a_zero_s_allowance(
+    tmp_path, db_session, monkeypatch
+):
+    """Run free docstring discovery under an exhausted wallet without paid judging.
+
+    At `--budget 0` the wallet refuses from the very first cell, which is the sharpest form of
+    the case. A zero candidate allowance permits the local walk while making a paid judge call
+    unreachable.
+    """
+    repo = frame_repo(tmp_path, files={"A.md": "a"})
+    configs: list[tuple[str, dict]] = []
+
+    def _record(run_id, producer, unit_ref, repo_root, config):
+        """Record each producer's dispatched configuration."""
+        configs.append((producer, config))
+        return None
+
+    run_id, _ = frame_run(
+        repo,
+        db_session,
+        monkeypatch,
+        budget=0.0,
+        dispatch=stub_dispatch(db_session, hook=_record),
+    )
+
+    assert [producer for producer, _ in configs] == ["docstrings"]
+    assert configs[0][1]["max_s_candidates"] == 0
+    disposition = _disposition(db_session, run_id)
+    assert disposition["funded"] == [list(LANE_B)]
+    assert disposition["deferred_by_wallet"] == [["agent", "A.md"]]
+
+
+class _FakeInspect:
+    """Stand in for worker inspection; `None` means no worker replied."""
+
+    def __init__(self, active=None, reserved=None, raises=False):
+        """Configure active, reserved, or unavailable inspection responses."""
+        self._active, self._reserved, self._raises = active, reserved, raises
+
+    def active(self):
+        """Return active tasks or simulate an unavailable broker."""
+        if self._raises:
+            raise OSError("broker unreachable")
+        return self._active
+
+    def reserved(self):
+        """Return reserved tasks or simulate an unavailable broker."""
+        if self._raises:
+            raise OSError("broker unreachable")
+        return self._reserved
+
+
+def test_a_killed_worker_makes_the_cell_a_derivable_hole(tmp_path, db_session, monkeypatch):
+    """Derive unreported cells when a live worker confirms they are absent.
+
+    A cell is lost only after dispatch produced no result row and a responding worker lists it in
+    neither active nor reserved tasks. This fixture verifies that the derived set and the run-cost
+    payload agree for this run.
+    """
+    repo = frame_repo(tmp_path, files={"A.md": "a"})
+
+    run_id, report = frame_run(
+        repo,
+        db_session,
+        monkeypatch,
+        dispatch=stub_dispatch(db_session, report=False),
+        inspect_factory=lambda: _FakeInspect(active={"celery@host": []}, reserved={}),
+    )
+
+    disposition = _disposition(db_session, run_id)
+    reported = {tuple(p["cell_key"]) for p in _rows(db_session, run_id, "cell_result")}
+    unreported = [tuple(k) for k in disposition["funded"] if tuple(k) not in reported]
+    assert unreported == [LANE_B, ("agent", "A.md")]
+    assert reported == set()
+    cost = _rows(db_session, run_id, "run_cost")[0]
+    assert cost["graph_completed"] is False
+    assert cost["spend_is_floor"] is True
+    assert [tuple(k) for k in cost["unreported_cells"]] == unreported
+    assert "never reported" in report
+    # The banner distinguishes a missing result from a cell that found nothing.
+    assert "⚠ INCOMPLETE" in report
+    assert "docstrings:docstring_corpus (never_reported)" in report
+    assert "agent:A.md (never_reported)" in report
+
+
+def test_an_inconclusive_probe_never_declares_a_cell_lost(tmp_path, db_session, monkeypatch):
+    """Keep waiting when worker inspection is inconclusive.
+
+    An inspection error says nothing about the cell. The late result appears only after repeated
+    unavailable inspections, proving that the frame does not confuse monitor failure with task
+    absence.
+    """
+    repo = frame_repo(tmp_path, files={"A.md": "a"})
+    polls = {"n": 0}
+    late: dict = {}
+
+    def _late_reporting_cell(run_id, producer, unit_ref, repo_root, config):
+        """Record a dispatched cell without writing its result yet."""
+        late[(producer, unit_ref)] = run_id
+        return "no-row"
+
+    original = read_model.cell_results_of
+
+    def _counting(session, run_id):
+        """Write delayed results after several unavailable inspection rounds."""
+        polls["n"] += 1
+        if polls["n"] > 70:  # Past the unavailable-inspection reporting threshold.
+            for key, rid in list(late.items()):
+                if rid == run_id:
+                    from tests.fixtures.frame import write_cell_result
+
+                    write_cell_result(session, rid, key)
+                    late.pop(key)
+        return original(session, run_id)
+
+    monkeypatch.setattr(read_model, "cell_results_of", _counting)
+
+    run_id, report = frame_run(
+        repo,
+        db_session,
+        monkeypatch,
+        dispatch=stub_dispatch(db_session, hook=_late_reporting_cell),
+        inspect_factory=lambda: _FakeInspect(raises=True),
+    )
+
+    reported = {tuple(p["cell_key"]) for p in _rows(db_session, run_id, "cell_result")}
+    assert reported == {LANE_B, ("agent", "A.md")}
+    assert "probe_unavailable" in report
+    assert "STILL WAITING" in report
+
+
+def test_worker_membership_is_a_verdict_only_when_a_worker_actually_replies():
+    """Treat worker membership as a verdict only when a worker replies.
+
+    `None` from both halves means nobody answered, which is inconclusive and never a verdict.
+    A worker answering with an empty set confirms that the task is absent.
+    """
+    probe = dispatch._worker_membership
+
+    assert probe("t1", lambda: _FakeInspect(active={"w": [{"id": "t1"}]}, reserved={})) is True
+    assert probe("t1", lambda: _FakeInspect(active={}, reserved={"w": [{"id": "t1"}]})) is True
+    assert probe("t1", lambda: _FakeInspect(active={"w": []}, reserved={"w": []})) is False
+    assert probe("t1", lambda: _FakeInspect(active=None, reserved=None)) is None
+    assert probe("t1", lambda: _FakeInspect(raises=True)) is None
+    assert probe("t1", lambda: None) is None
+
+
+def test_worker_membership_is_inconclusive_when_only_half_the_probe_replies():
+    """A half reply is not a reply.
+
+    `active()` and `reserved()` are separate broker round-trips, so one can answer while the other
+    times out. Building a verdict from the half that answered declares a task lost when it may be
+    sitting in the set nobody reported — the frame then abandons a cell that exists.
+    """
+    probe = dispatch._worker_membership
+
+    assert probe("t1", lambda: _FakeInspect(active={"w": []}, reserved=None)) is None
+    assert probe("t1", lambda: _FakeInspect(active=None, reserved={"w": []})) is None
+
+
+def test_a_strict_abort_cell_stops_dispatch_completes_the_finally_and_exits_three(
+    tmp_path, db_session, monkeypatch
+):
+    """Stop dispatch, complete finalization, and propagate a strict cell abort.
+
+    Continuing would spend money after a measurement failure. Swallowing the exception would also
+    make the CLI classify the run as completed rather than aborted.
+    """
+    repo = frame_repo(tmp_path, files={"A.md": "a", "B.md": "b", "C.md": "c"})
+    out = tmp_path / "run.jsonl"
+
+    seen: dict = {}
+
+    def _abort_on_first_agent_cell(run_id, producer, unit_ref, repo_root, config):
+        """Abort the first discovery cell."""
+        seen["run_id"] = run_id
+        if producer == "agent" and unit_ref == "A.md":
+            return {"status": "strict_abort", "error": "rail fired"}
+        return None
+
+    with pytest.raises(StrictMeasurementAbort):
+        frame_run(
+            repo,
+            db_session,
+            monkeypatch,
+            strict_measurement=True,
+            journal_export=str(out),
+            dispatch=stub_dispatch(db_session, hook=_abort_on_first_agent_cell),
+        )
+
+    disposition = _disposition(db_session, seen["run_id"])
+    # Aborted cells are not wallet deferrals.
+    assert disposition["funded"] == [list(LANE_B), ["agent", "A.md"]]
+    assert disposition["never_dispatched"] == [["agent", "B.md"], ["agent", "C.md"]]
+    assert disposition["deferred_by_wallet"] == []
+    exported = [json.loads(line) for line in out.read_text().splitlines()]
+    assert [r["record_type"] for r in exported].count("run_cost") == 1
+    # Never-dispatched cells have no independent reason row, so a completed status would make the
+    # run publishable despite its incomplete banner.
+    assert db_session.get(ScanRun, seen["run_id"]).status != "done"
+
+
+def test_an_abort_never_discards_the_cells_that_completed_and_billed(
+    tmp_path, db_session, monkeypatch
+):
+    """Preserve completed cell rows and billed spend when a later cell aborts.
+
+    Spend is recomputed from every usage row instead of trusted from the frame's own total. The
+    cost row must be written during finalization even though the exception destroys graph state.
+    """
+    repo = frame_repo(tmp_path, files={"A.md": "a", "B.md": "b", "C.md": "c"})
+
+    def _bill_then_abort(run_id, producer, unit_ref, repo_root, config):
+        """Bill discovery cells and abort the second one."""
+        if producer == "agent":
+            writer = JournalWriter(db_session, run_id, "r", "abc", _STAMPS)
+            writer.write(
+                "agent",
+                "agent_coverage",
+                {"unit": unit_ref, "status": "complete", "usage": _USAGE_30C},
+            )
+            writer.flush()
+        if (producer, unit_ref) == ("agent", "B.md"):
+            return {"status": "strict_abort", "error": "journal write failed"}
+        return None
+
+    with pytest.raises(StrictMeasurementAbort):
+        frame_run(
+            repo,
+            db_session,
+            monkeypatch,
+            strict_measurement=True,
+            dispatch=stub_dispatch(db_session, hook=_bill_then_abort),
+        )
+
+    run_id = (
+        db_session.query(ScanRun).filter_by(repo=str(repo)).order_by(ScanRun.id.desc()).first().id
+    )
+    billed = _total_billed(db_session, run_id)
+    assert billed > 0
+
+    cost = _rows(db_session, run_id, "run_cost")
+    assert len(cost) == 1
+    assert cost[0]["spend_usd"] == pytest.approx(billed)
+    # A revoked cell may still report additional billed usage later.
+    assert cost[0]["spend_is_floor"] is True
+
+    # Completed cells commit independently of a later abort.
+    reported = {tuple(p["cell_key"]): p["status"] for p in _rows(db_session, run_id, "cell_result")}
+    assert reported == {
+        LANE_B: "completed",
+        ("agent", "A.md"): "completed",
+        ("agent", "B.md"): "strict_abort",
+    }
+    assert len(_rows(db_session, run_id, "agent_coverage")) == 2
+
+
+def test_the_cli_maps_a_cell_strict_abort_to_exit_three(tmp_path, monkeypatch):
+    """Map a strict cell abort to exit code 3 through the real CLI."""
+    from typer.testing import CliRunner
+
+    from drift.cli.main import app
+    from drift.persistence.db import SessionLocal
+    from drift.persistence.models import CellTerminalStatus, Issue, ScanRun
+
+    repo = frame_repo(tmp_path, files={"A.md": "a"})
+
+    def _abort(run_id, producer, unit_ref, repo_root, config):
+        """Write a strict-abort result for every dispatched cell."""
+        session = SessionLocal()
+        try:
+            payload = cell_result_payload(
+                (producer, unit_ref), status="strict_abort", error="rail fired"
+            )
+            JournalWriter(session, run_id, str(repo), "sha", _STAMPS).write(
+                "cell", "cell_result", payload
+            )
+            session.commit()
+        finally:
+            session.close()
+        return f"stub:{producer}:{unit_ref}"
+
+    monkeypatch.setattr(dispatch, "_celery_dispatch", _abort)
+    # The command selects the in-process dispatcher in this test configuration.
+    monkeypatch.setattr(dispatch, "in_process_dispatch", lambda *a, **k: _abort)
+    monkeypatch.setattr("anthropic.Anthropic", lambda *a, **k: object())
+
+    try:
+        result = CliRunner().invoke(app, ["dev", "scan", str(repo), "--strict-measurement"])
+        assert result.exit_code == 3
+        assert result.stdout.strip() == ""
+    finally:
+        session = SessionLocal()
+        try:
+            runs = [r.id for r in session.query(ScanRun).filter_by(repo=str(repo))]
+            session.query(Issue).filter_by(repo=str(repo)).delete()
+            session.query(JournalRecord).filter(JournalRecord.run_id.in_(runs)).delete(
+                synchronize_session=False
+            )
+            session.query(CellTerminalStatus).filter(CellTerminalStatus.run_id.in_(runs)).delete(
+                synchronize_session=False
+            )
+            session.query(ScanRun).filter(ScanRun.id.in_(runs)).delete(synchronize_session=False)
+            session.commit()
+        finally:
+            session.close()
+
+
+def test_the_cli_exits_zero_when_the_wallet_stops_a_strict_run(tmp_path, monkeypatch):
+    """Publish a strict run stopped by the wallet at a cell boundary.
+
+    A cell abort cuts work in flight and exits 3; a wallet stop declines new work and exits 0 with
+    an incomplete report. The fixture emits claims so this test isolates wallet behavior from the
+    separate paid-but-empty classification.
+    """
+    from typer.testing import CliRunner
+
+    from drift.cli.main import app
+    from drift.journal.completeness import is_publishable, run_incompleteness
+    from drift.persistence.db import SessionLocal
+    from drift.persistence.models import CellTerminalStatus, Issue, ScanRun
+
+    repo = frame_repo(tmp_path, files={"A.md": "a", "B.md": "b"})
+
+    def _expensive(run_id, producer, unit_ref, repo_root, config):
+        """Bill enough for each discovery cell to exhaust the remaining budget."""
+        session = SessionLocal()
+        try:
+            writer = JournalWriter(session, run_id, str(repo), "sha", _STAMPS)
+            if producer == "agent":
+                writer.write(
+                    "agent",
+                    "agent_coverage",
+                    {"unit": unit_ref, "status": "complete", "usage": _USAGE_30C},
+                )
+            # Nonzero claims isolate wallet behavior from paid-but-empty classification.
+            writer.write(
+                "cell",
+                "cell_result",
+                cell_result_payload((producer, unit_ref), claims_emitted=2),
+            )
+            session.commit()
+        finally:
+            session.close()
+        return f"stub:{producer}:{unit_ref}"
+
+    monkeypatch.setattr(dispatch, "_celery_dispatch", _expensive)
+    # The command selects the in-process dispatcher in this test configuration.
+    monkeypatch.setattr(dispatch, "in_process_dispatch", lambda *a, **k: _expensive)
+    monkeypatch.setattr("anthropic.Anthropic", lambda *a, **k: object())
+
+    try:
+        result = CliRunner().invoke(
+            app,
+            ["dev", "scan", str(repo), "--strict-measurement", "--budget", "0.10"],
+        )
+        assert result.exit_code == 0
+        assert "# drift report" in result.stdout
+
+        session = SessionLocal()
+        try:
+            run_id = session.query(ScanRun).filter_by(repo=str(repo)).one().id
+            reasons = run_incompleteness(session, run_id)
+            assert {r.mode for r in reasons} == {"rail_stop", "coverage_shortfall"}
+            assert is_publishable(reasons) is True
+        finally:
+            session.close()
+    finally:
+        session = SessionLocal()
+        try:
+            runs = [r.id for r in session.query(ScanRun).filter_by(repo=str(repo))]
+            session.query(Issue).filter_by(repo=str(repo)).delete()
+            session.query(JournalRecord).filter(JournalRecord.run_id.in_(runs)).delete(
+                synchronize_session=False
+            )
+            session.query(CellTerminalStatus).filter(CellTerminalStatus.run_id.in_(runs)).delete(
+                synchronize_session=False
+            )
+            session.query(ScanRun).filter(ScanRun.id.in_(runs)).delete(synchronize_session=False)
+            session.commit()
+        finally:
+            session.close()
+
+
+def test_the_first_interrupt_stops_dispatch_and_the_finally_still_runs(
+    tmp_path, db_session, monkeypatch
+):
+    """Stop dispatch after the first interrupt while still finalizing the run.
+
+    The second-interrupt behavior belongs to the in-flight wait loop and is tested separately.
+    """
+    repo = frame_repo(tmp_path, files={"A.md": "a", "B.md": "b"})
+    out = tmp_path / "run.jsonl"
+
+    def _interrupt_on_first_agent_cell(run_id, producer, unit_ref, repo_root, config):
+        """Interrupt when the first discovery cell is dispatched."""
+        if producer == "agent":
+            raise KeyboardInterrupt("user pressed Ctrl-C")
+        return None
+
+    with pytest.raises(KeyboardInterrupt):
+        frame_run(
+            repo,
+            db_session,
+            monkeypatch,
+            journal_export=str(out),
+            dispatch=stub_dispatch(db_session, hook=_interrupt_on_first_agent_cell),
+        )
+
+    exported = [json.loads(line) for line in out.read_text().splitlines()]
+    types = [r["record_type"] for r in exported]
+    assert types.count("run_cost") == 1
+    disposition = next(
+        r["payload"]
+        for r in exported
+        if r["record_type"] == "frame_plan" and r["payload"]["phase"] == "disposition"
+    )
+    assert disposition["never_dispatched"] == [["agent", "B.md"]]
+    cost = next(r["payload"] for r in exported if r["record_type"] == "run_cost")
+    assert cost["graph_completed"] is False and cost["spend_is_floor"] is True
+    # Never-dispatched cells have no reason row, so the run status must carry incompleteness.
+    assert db_session.get(ScanRun, exported[0]["run_id"]).status != "done"
+
+
+def test_a_second_interrupt_abandons_the_wait_for_the_in_flight_cell(monkeypatch):
+    """Let a second interrupt abandon the wait for an in-flight cell.
+
+    The first interrupt retries the wait once. The second makes the operator's intent to abandon
+    that wait explicit.
+    """
+    calls = {"n": 0}
+
+    def _always_interrupts(*a, **k):
+        """Interrupt every attempt to poll the in-flight cell."""
+        calls["n"] += 1
+        raise KeyboardInterrupt("Ctrl-C")
+
+    monkeypatch.setattr(dispatch, "_poll_until_reported", _always_interrupts)
+
+    with pytest.raises(KeyboardInterrupt):
+        dispatch._await_cell_result(None, 1, ("agent", "A.md"), "task-1", [], 0, lambda: None)
+
+    assert calls["n"] == 2

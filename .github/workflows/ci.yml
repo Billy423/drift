@@ -1,0 +1,53 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install ruff==0.16.2
+      - run: ruff check .
+      - run: ruff format --check .
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Both ends of the supported range. The floor is the claim the manifest makes;
+        # the ceiling is what the author actually runs.
+        python-version: ["3.11", "3.14"]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: drift
+          POSTGRES_PASSWORD: drift
+          POSTGRES_DB: drift
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+psycopg://drift:drift@localhost:5432/drift
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[dev]"
+      - run: alembic upgrade head
+      # Five regression tests replay a pinned upstream repository; without it they skip.
+      # The documented target, not the script, so CI proves that instruction works too.
+      - run: make corpus PY=python
+      # The Makefile is a test dependency: one test reads it to assert the task routing.
+      - run: pytest -q

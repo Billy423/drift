@@ -1,0 +1,285 @@
+{
+  "_": [
+    "A regression pin: the six true-positive path drifts on jupyter_server/i18n/README.md",
+    "that must still emit as HIGH, and the three claims `base-ambiguous` must still shield.",
+    "",
+    "`normalized_args` are as STORED (path_exists strips a trailing slash: 'notebook/i18n/'",
+    "-> 'notebook/i18n'). `tests/graph/test_g3_pin.py` re-derives them from the literal through",
+    "the production normalizer, so a normalization change cannot silently desync the pin from",
+    "the identity the gate replays.",
+    "",
+    "`attested_in_runs` is per row: a claim the agent did not bind in a given run has no gate",
+    "row for it in that run, so the pin never claims attestation it does not have.",
+    "",
+    "`s_verdict` is the earliest attesting run's live verdict, at its recorded confidence. HIGH",
+    "is `live AND confidence >= S_THRESHOLD`, so a pin scripting `live` alone would not exercise",
+    "the rule it protects."
+  ],
+  "corpus": {
+    "name": "jupyter-server__jupyter_server",
+    "root": "~/.drift-corpus/jupyter-server__jupyter_server",
+    "manifest": "~/.drift-corpus/MANIFEST.tsv",
+    "commit_sha": "5b6f030ecf91341261b1879b55297a87f9804183"
+  },
+  "doc_path": "jupyter_server/i18n/README.md",
+  "runs": [
+    70,
+    71,
+    72
+  ],
+  "run_meta": {
+    "70": {
+      "agent_ver": "agent/0.8",
+      "judge_ver": "sjudge/0.4",
+      "model": "claude-sonnet-5",
+      "turns_used": 1,
+      "tool_calls": 0,
+      "unit_status": "complete"
+    },
+    "71": {
+      "agent_ver": "agent/0.8",
+      "judge_ver": "sjudge/0.4",
+      "model": "claude-sonnet-5",
+      "turns_used": 3,
+      "tool_calls": 4,
+      "unit_status": "complete"
+    },
+    "72": {
+      "agent_ver": "agent/0.8",
+      "judge_ver": "sjudge/0.4",
+      "model": "claude-sonnet-5",
+      "turns_used": 4,
+      "tool_calls": 5,
+      "unit_status": "complete"
+    }
+  },
+  "true_positives": [
+    {
+      "literal": "notebook/i18n/",
+      "predicate": "path_exists",
+      "normalized_args": [
+        "notebook/i18n"
+      ],
+      "normalization": {
+        "base": "repo-root"
+      },
+      "doc_path": "jupyter_server/i18n/README.md",
+      "expected_gate_outcome": "M_CERTIFIED",
+      "attested_in_runs": [
+        70,
+        71,
+        72
+      ],
+      "journal_source": "probes/2026-08-02-doc-loop/data/g3-docreading-70-72.json#gate_outcomes",
+      "report_sources": [
+        "report-run70.md",
+        "report-run71.md",
+        "report-run72.md"
+      ],
+      "s_verdict": {
+        "live": true,
+        "confidence": 0.72,
+        "from_run": 70,
+        "source": "probes/2026-08-02-doc-loop/data/g3-docreading-70-72.json#s_verdicts"
+      }
+    },
+    {
+      "literal": "notebook/i18n/notebook.pot",
+      "predicate": "path_exists",
+      "normalized_args": [
+        "notebook/i18n/notebook.pot"
+      ],
+      "normalization": {
+        "base": "repo-root"
+      },
+      "doc_path": "jupyter_server/i18n/README.md",
+      "expected_gate_outcome": "M_CERTIFIED",
+      "attested_in_runs": [
+        70,
+        71,
+        72
+      ],
+      "journal_source": "probes/2026-08-02-doc-loop/data/g3-docreading-70-72.json#gate_outcomes",
+      "report_sources": [
+        "report-run70.md",
+        "report-run71.md",
+        "report-run72.md"
+      ],
+      "s_verdict": {
+        "live": true,
+        "confidence": 0.75,
+        "from_run": 70,
+        "source": "probes/2026-08-02-doc-loop/data/g3-docreading-70-72.json#s_verdicts"
+      }
+    },
+    {
+      "literal": "notebook/i18n/nbui.pot",
+      "predicate": "path_exists",
+      "normalized_args": [
+        "notebook/i18n/nbui.pot"
+      ],
+      "normalization": {
+        "base": "repo-root"
+      },
+      "doc_path": "jupyter_server/i18n/README.md",
+      "expected_gate_outcome": "M_CERTIFIED",
+      "attested_in_runs": [
+        70,
+        71,
+        72
+      ],
+      "journal_source": "probes/2026-08-02-doc-loop/data/g3-docreading-70-72.json#gate_outcomes",
+      "report_sources": [
+        "report-run70.md",
+        "report-run71.md",
+        "report-run72.md"
+      ],
+      "s_verdict": {
+        "live": true,
+        "confidence": 0.8,
+        "from_run": 70,
+        "source": "probes/2026-08-02-doc-loop/data/g3-docreading-70-72.json#s_verdicts"
+      }
+    },
+    {
+      "literal": "noteook/i18n/nbjs.pot",
+      "predicate": "path_exists",
+      "normalized_args": [
+        "noteook/i18n/nbjs.pot"
+      ],
+      "normalization": {
+        "base": "repo-root"
+      },
+      "doc_path": "jupyter_server/i18n/README.md",
+      "expected_gate_outcome": "M_CERTIFIED",
+      "attested_in_runs": [
+        70,
+        71,
+        72
+      ],
+      "journal_source": "probes/2026-08-02-doc-loop/data/g3-docreading-70-72.json#gate_outcomes",
+      "report_sources": [
+        "report-run70.md",
+        "report-run71.md",
+        "report-run72.md"
+      ],
+      "s_verdict": {
+        "live": true,
+        "confidence": 0.9,
+        "from_run": 70,
+        "source": "probes/2026-08-02-doc-loop/data/g3-docreading-70-72.json#s_verdicts"
+      }
+    },
+    {
+      "literal": "notebook/i18n/nbjs.json",
+      "predicate": "path_exists",
+      "normalized_args": [
+        "notebook/i18n/nbjs.json"
+      ],
+      "normalization": {
+        "base": "repo-root"
+      },
+      "doc_path": "jupyter_server/i18n/README.md",
+      "expected_gate_outcome": "M_CERTIFIED",
+      "attested_in_runs": [
+        70,
+        71,
+        72
+      ],
+      "journal_source": "probes/2026-08-02-doc-loop/data/g3-docreading-70-72.json#gate_outcomes",
+      "report_sources": [
+        "report-run70.md",
+        "report-run71.md",
+        "report-run72.md"
+      ],
+      "s_verdict": {
+        "live": true,
+        "confidence": 0.7,
+        "from_run": 70,
+        "source": "probes/2026-08-02-doc-loop/data/g3-docreading-70-72.json#s_verdicts"
+      }
+    },
+    {
+      "literal": "babel_nbjs.cfg",
+      "predicate": "path_exists",
+      "normalized_args": [
+        "babel_nbjs.cfg"
+      ],
+      "normalization": {
+        "base": "repo-root"
+      },
+      "doc_path": "jupyter_server/i18n/README.md",
+      "expected_gate_outcome": "M_CERTIFIED",
+      "attested_in_runs": [
+        71,
+        72
+      ],
+      "journal_source": "probes/2026-08-02-doc-loop/data/g3-docreading-70-72.json#gate_outcomes",
+      "report_sources": [
+        "report-run71.md",
+        "report-run72.md"
+      ],
+      "s_verdict": {
+        "live": true,
+        "confidence": 0.75,
+        "from_run": 71,
+        "source": "probes/2026-08-02-doc-loop/data/g3-docreading-70-72.json#s_verdicts"
+      }
+    }
+  ],
+  "base_ambiguous": [
+    {
+      "literal": "babel_notebook.cfg",
+      "predicate": "path_exists",
+      "normalized_args": [
+        "babel_notebook.cfg"
+      ],
+      "normalization": {
+        "base": "repo-root"
+      },
+      "doc_path": "jupyter_server/i18n/README.md",
+      "expected_gate_outcome": "base-ambiguous",
+      "attested_in_runs": [
+        71,
+        72
+      ],
+      "journal_source": "probes/2026-08-02-doc-loop/data/g3-docreading-70-72.json#gate_outcomes",
+      "report_sources": []
+    },
+    {
+      "literal": "babel_nbui.cfg",
+      "predicate": "path_exists",
+      "normalized_args": [
+        "babel_nbui.cfg"
+      ],
+      "normalization": {
+        "base": "repo-root"
+      },
+      "doc_path": "jupyter_server/i18n/README.md",
+      "expected_gate_outcome": "base-ambiguous",
+      "attested_in_runs": [
+        71,
+        72
+      ],
+      "journal_source": "probes/2026-08-02-doc-loop/data/g3-docreading-70-72.json#gate_outcomes",
+      "report_sources": []
+    },
+    {
+      "literal": "setup.py",
+      "predicate": "path_exists",
+      "normalized_args": [
+        "setup.py"
+      ],
+      "normalization": {
+        "base": "repo-root"
+      },
+      "doc_path": "jupyter_server/i18n/README.md",
+      "expected_gate_outcome": "base-ambiguous",
+      "attested_in_runs": [
+        72
+      ],
+      "journal_source": "probes/2026-08-02-doc-loop/data/g3-docreading-70-72.json#gate_outcomes",
+      "report_sources": []
+    }
+  ]
+}
