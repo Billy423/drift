@@ -110,7 +110,7 @@ model API** — point it at repositories where that is acceptable.
 |---|---|
 | verified findings emitted | **6**, of which **0** are false positives |
 | predicates that have ever minted a finding | **1** of 5 high-grade |
-| semantic judge, 18 golden items | **0** false not-live over the **4** not-live items |
+| semantic judge, 18 golden items | **0** false not-live over the **12** live items |
 | known drifts reached and named, of 15 | **13** — and **0** of them produced a verified finding |
 
 The last row is the interesting one. On documents whose drifts had already been adjudicated by hand,

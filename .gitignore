@@ -24,3 +24,6 @@ htmlcov/
 
 # Run artifacts — journal exports and reports are written next to the invocation.
 *.journal.json
+
+# OS
+.DS_Store

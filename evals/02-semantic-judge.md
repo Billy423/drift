@@ -34,10 +34,12 @@ disregard prior context is an instruction, not a control, and the record classif
 one disclosed-contaminated opinion rather than an independent adjudication. Nothing here should be
 read as a clean-label figure.
 
-**The negative class is very small, and its strongest reading is one item.** A false not-live can
-only occur on an item labelled not-live, so the denominator for that error is **4**, not 18. Of
-those four, **2** survive both defensible label mappings, and **1** survives both mappings *and*
-carries no distribution caveat. Both mappings are reported for every count below, because neither is
+**Each direction has its own denominator, and neither is 18.** A false not-live can only occur on an
+item labelled live — **12** of those. A false live only on one labelled not-live — **4**.
+
+**The false-live class is the small one, and its strongest reading is a single item.** Of those four,
+**2** survive both defensible label mappings, and **1** survives both mappings *and* carries no
+distribution caveat. Both mappings are reported for every count below, because neither is
 privileged: some labels carry caveats, and how a caveated label is read changes the count.
 
 **The distribution is not the shipped system's.** Five of the eighteen items are literals produced by
@@ -55,8 +57,8 @@ Over the 18 items, the shipped judge version produces:
 
 | | count |
 |---|---|
-| independent false not-live | **0** (of 4 not-live items; 2 mapping-robust, 1 caveat-free) |
-| false live, looser mapping | 2 |
+| independent false not-live | **0** (of 12 live items) |
+| false live, looser mapping | 2 (of 4 not-live items; 2 mapping-robust, 1 caveat-free) |
 | false live, stricter mapping | 0 |
 
 For contrast, two earlier versions of the same prompt over the same items: the baseline produced

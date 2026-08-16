@@ -32,7 +32,7 @@ Three consequences worth having in mind before the table:
 | verified findings emitted | **6** | [`01`](01-verified-tier.md) |
 | false positives among them | **0** | [`01`](01-verified-tier.md) |
 | predicates that have ever minted | **1 of 5** high-grade | [`01`](01-verified-tier.md) |
-| semantic judge, 18 golden items | **0** false not-live over the **4** not-live items · 2 false live under the looser mapping, 0 under the stricter | [`02`](02-semantic-judge.md) |
+| semantic judge, 18 golden items | **0** false not-live over the **12** live items · 2 false live under the looser mapping, 0 under the stricter, over the **4** not-live | [`02`](02-semantic-judge.md) |
 | known drifts reached and named, of 15 | **13** | [`03`](03-ranked-tier.md) |
 | of those, verified findings produced | **0** | [`03`](03-ranked-tier.md) |
 | whole-repository scan cost, median | about **$2.06**, pre-fix | [`04`](04-cost.md) |
